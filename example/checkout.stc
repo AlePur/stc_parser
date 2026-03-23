@@ -1,0 +1,44 @@
+service CheckoutService
+
+external DB MainDB
+external API PaymentGate
+external DATA UserId
+
+routine ReserveStock(MainDB) {
+    do "UPDATE inventory SET count = count - 1" to MainDB
+    rollback "UPDATE inventory SET count = count + 1" to MainDB
+}
+
+routine ChargeCard(PaymentGate, UserId) {
+    do "POST /charges" # shortcut: Only one DB/API declared, so 'do' is clearly operating on the one provided
+    rollback "POST /refunds"
+    lock UserId
+}
+
+first state Created {
+    has [MainDB, PaymentGate, UserId]
+}
+
+state Reserved {
+    steps [ReserveStock]
+    on success -> Processing
+    on fail -> Cancelled
+}
+
+state Processing {
+    steps [ChargeCard]
+    on success -> Completed
+    on fail -> PaymentFailed
+}
+
+terminal state Completed {
+
+}
+
+terminal state Cancelled {
+
+}
+
+state PaymentFailed {
+    // Linter will warn here: Not terminal, but no outgoing transitions
+}
