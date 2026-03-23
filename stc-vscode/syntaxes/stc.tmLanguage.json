@@ -1,0 +1,175 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "STC",
+  "scopeName": "source.stc",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#service-decl" },
+    { "include": "#external-decl" },
+    { "include": "#routine-decl" },
+    { "include": "#state-decl" },
+    { "include": "#transition" },
+    { "include": "#body-keywords" },
+    { "include": "#external-types" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.stc",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.line.hash.stc",
+          "match": "#.*$"
+        }
+      ]
+    },
+
+    "strings": {
+      "name": "string.quoted.double.stc",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.stc",
+          "match": "\\\\."
+        }
+      ]
+    },
+
+    "service-decl": {
+      "comment": "service CheckoutService",
+      "match": "\\b(service)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.stc" },
+        "2": { "name": "entity.name.type.service.stc" }
+      }
+    },
+
+    "external-decl": {
+      "comment": "external DB MainDB",
+      "match": "\\b(external)\\s+(DB|API|DATA)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.stc" },
+        "2": { "name": "support.type.external.stc" },
+        "3": { "name": "entity.name.type.external.stc" }
+      }
+    },
+
+    "routine-decl": {
+      "comment": "routine ReserveStock(MainDB) { ... }",
+      "begin": "\\b(routine)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()",
+      "end": "\\)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.stc" },
+        "2": { "name": "entity.name.function.routine.stc" },
+        "3": { "name": "punctuation.definition.parameters.begin.stc" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.parameters.end.stc" }
+      },
+      "patterns": [
+        { "include": "#dep-list" }
+      ]
+    },
+
+    "state-decl": {
+      "comment": "[first|terminal] state StateName",
+      "match": "\\b(first|terminal)(?=\\s+state\\b)|\\b(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.modifier.stc" },
+        "2": { "name": "keyword.control.stc" },
+        "3": { "name": "entity.name.type.state.stc" }
+      }
+    },
+
+    "transition": {
+      "comment": "on success -> Processing",
+      "match": "\\b(on)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(->)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.flow.stc" },
+        "2": { "name": "variable.other.event.stc" },
+        "3": { "name": "keyword.operator.arrow.stc" },
+        "4": { "name": "entity.name.type.state.stc" }
+      }
+    },
+
+    "body-keywords": {
+      "comment": "Keywords used inside routine and state bodies",
+      "patterns": [
+        {
+          "comment": "do/rollback ... to Target",
+          "match": "\\b(do|rollback)\\b",
+          "name": "keyword.other.action.stc"
+        },
+        {
+          "comment": "'to' target in do/rollback statements",
+          "match": "(?<=\\\"[^\\\"]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.stc" },
+            "2": { "name": "entity.name.type.external.stc" }
+          }
+        },
+        {
+          "comment": "lock Dependency",
+          "match": "\\b(lock)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.lock.stc" },
+            "2": { "name": "entity.name.type.external.stc" }
+          }
+        },
+        {
+          "comment": "has [...] inside first state",
+          "match": "\\b(has)\\b",
+          "name": "keyword.other.stc"
+        },
+        {
+          "comment": "steps [...] inside state",
+          "match": "\\b(steps)\\b",
+          "name": "keyword.other.stc"
+        }
+      ]
+    },
+
+    "external-types": {
+      "comment": "DB / API / DATA when used standalone (e.g. inside dep lists)",
+      "match": "\\b(DB|API|DATA)\\b",
+      "name": "support.type.external.stc"
+    },
+
+    "dep-list": {
+      "comment": "Identifiers inside routine dependency parentheses",
+      "match": "[A-Za-z_][A-Za-z0-9_]*",
+      "name": "variable.parameter.stc"
+    },
+
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.begin.stc",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.stc",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.definition.list.begin.stc",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.definition.list.end.stc",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.separator.stc",
+          "match": ","
+        }
+      ]
+    }
+  }
+}

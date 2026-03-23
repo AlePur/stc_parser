@@ -1,0 +1,29 @@
+{
+  "name": "stc-lang",
+  "displayName": "STC Language",
+  "description": "Syntax highlighting for the STC (State-Transition Compiler) language",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "stc",
+        "aliases": ["STC", "stc"],
+        "extensions": [".stc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stc",
+        "scopeName": "source.stc",
+        "path": "./syntaxes/stc.tmLanguage.json"
+      }
+    ]
+  }
+}
