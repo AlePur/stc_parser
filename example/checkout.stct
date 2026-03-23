@@ -1,0 +1,20 @@
+service CheckoutService from "./checkout"
+
+external DB MainDB
+external API PaymentGate
+
+test IdempotencyTest {
+    example DATA ExampleUser
+
+    service1 := start CheckoutService(MainDB, PaymentGate, UserId: ExampleUser)
+    run service1 to Processing^ # ^ is start of Reserved
+    service2 := start CheckoutService(MainDB, PaymentGate, UserId: ExampleUser)
+
+    run {
+        service1 to termination # No ^ -> end of termination
+        service2 to termination
+    }
+    assert MainDB writes = 1 # strict
+    # the test will also fail if any locks are open
+    # this is the default
+}

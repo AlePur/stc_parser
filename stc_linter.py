@@ -12,21 +12,21 @@ Rules
 ERRORS
   E001  Transition targets an undefined state.
   E002  Terminal state has outgoing transitions.
-  E003  Steps references an undefined routine.
+  E003  steps[] references an undefined routine.
   E004  Routine references an undefined external in its dependency list.
   E005  Exactly one `first` state must be declared.
-  E006  `do ... to X` — target X is not in the routine's dependency list.
-  E007  `do ... to X` — X is not a declared external.
-  E008  `lock X` — X is not in the routine's dependency list.
-  E009  `lock X` — X is not a declared external.
+  E006  `do/rollback ... to X` — target X is not in the routine's dependency list.
+  E007  `do/rollback ... to X` — X is not a declared external.
+  E008  `do lock X` — X (the resource) is not in the routine's dependency list.
+  E009  `do lock X` — X is not a declared external.
 
 WARNINGS
   W001  State has no outgoing transitions and is not marked terminal.
   W002  State is unreachable from the first state.
   W003  External declared but never referenced in any routine.
   W004  Routine declared but never used in any state's steps.
-  W005  Routine used in a state that has a `fail` transition, but the routine
-        has no rollback defined — failure may leave the system in a dirty state.
+  W005  Routine used in a state that has a `fail` transition, but some step
+        has no rollback — failure may leave the system in a dirty state.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Dict, List, Set
 
-from stc_ast import ServiceAST, State
+from stc_ast import DoKind, DoAction, ServiceAST, State
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +64,6 @@ class STCLinter:
         self.errors: List[Diagnostic] = []
         self.warnings: List[Diagnostic] = []
 
-        # Pre-built lookup tables for fast membership checks
         self._state_map: Dict[str, State] = {s.name: s for s in ast.states}
         self._external_names: Set[str] = {e.name for e in ast.externals}
         self._routine_names: Set[str] = {r.name for r in ast.routines}
@@ -80,8 +79,8 @@ class STCLinter:
         self._check_terminal_violations()    # E002
         self._check_undefined_routines()     # E003
         self._check_undefined_externals()    # E004
-        self._check_do_to_relationship()     # E006, E007
-        self._check_lock_relationship()      # E008, E009
+        self._check_action_targets()         # E006, E007
+        self._check_lock_resources()         # E008, E009
 
         self._check_implicit_terminal()      # W001
         self._check_unreachable_states()     # W002
@@ -155,55 +154,63 @@ class STCLinter:
                         routine.line,
                     ))
 
-    def _check_do_to_relationship(self):
+    def _check_action_targets(self):
         """
         E006 — `do/rollback ... to X`: X not in the routine's dependency list.
         E007 — `do/rollback ... to X`: X is not a declared external.
         """
         for routine in self.ast.routines:
-            for stmt in [routine.action, routine.rollback]:
-                if stmt is None or stmt.target is None:
+            all_actions: List[DoAction] = []
+            for step in routine.steps:
+                all_actions.append(step.do_action)
+                if step.rollback_action:
+                    all_actions.append(step.rollback_action)
+
+            for action in all_actions:
+                if action.target is None:
                     continue
-                tgt = stmt.target
-                keyword = "rollback" if stmt.is_rollback else "do"
+                tgt = action.target
+                kind_str = action.kind.value
                 if tgt not in routine.dependencies:
                     self.errors.append(Diagnostic(
                         "E006",
-                        f"Routine '{routine.name}': `{keyword} ... to {tgt}` — "
+                        f"Routine '{routine.name}': `{kind_str} ... to {tgt}` — "
                         f"'{tgt}' is not in the routine's dependency list {routine.dependencies}.",
-                        stmt.line,
+                        action.line,
                     ))
                 elif tgt not in self._external_names:
                     self.errors.append(Diagnostic(
                         "E007",
-                        f"Routine '{routine.name}': `{keyword} ... to {tgt}` — "
+                        f"Routine '{routine.name}': `{kind_str} ... to {tgt}` — "
                         f"'{tgt}' is not a declared external.",
-                        stmt.line,
+                        action.line,
                     ))
 
-    def _check_lock_relationship(self):
+    def _check_lock_resources(self):
         """
-        E008 — `lock X`: X not in the routine's dependency list.
-        E009 — `lock X`: X is not a declared external.
+        E008 — `do lock X`: resource X not in the routine's dependency list.
+        E009 — `do lock X`: resource X is not a declared external.
         """
         for routine in self.ast.routines:
-            lk = routine.lock_target
-            if lk is None:
-                continue
-            if lk not in routine.dependencies:
-                self.errors.append(Diagnostic(
-                    "E008",
-                    f"Routine '{routine.name}': `lock {lk}` — "
-                    f"'{lk}' is not in the routine's dependency list {routine.dependencies}.",
-                    routine.line,
-                ))
-            elif lk not in self._external_names:
-                self.errors.append(Diagnostic(
-                    "E009",
-                    f"Routine '{routine.name}': `lock {lk}` — "
-                    f"'{lk}' is not a declared external.",
-                    routine.line,
-                ))
+            for step in routine.steps:
+                for action in [step.do_action] + ([step.rollback_action] if step.rollback_action else []):
+                    if action.kind != DoKind.LOCK or action.resource is None:
+                        continue
+                    res = action.resource
+                    if res not in routine.dependencies:
+                        self.errors.append(Diagnostic(
+                            "E008",
+                            f"Routine '{routine.name}': `lock {res}` — "
+                            f"'{res}' is not in the routine's dependency list {routine.dependencies}.",
+                            action.line,
+                        ))
+                    elif res not in self._external_names:
+                        self.errors.append(Diagnostic(
+                            "E009",
+                            f"Routine '{routine.name}': `lock {res}` — "
+                            f"'{res}' is not a declared external.",
+                            action.line,
+                        ))
 
     # -----------------------------------------------------------------------
     # Warning checks
@@ -280,13 +287,12 @@ class STCLinter:
 
     def _check_missing_rollbacks(self):
         """
-        W005 — a routine used in a state's steps has no rollback, but that state
-        has a `fail` transition. If the routine fails, there is no recovery logic.
+        W005 — a routine used in a state's steps has a step without a rollback,
+        and that state has a `fail` transition.  Failure may leave system dirty.
         """
         routine_map = {r.name: r for r in self.ast.routines}
 
         for state in self.ast.states:
-            # Does this state have a `fail` transition?
             has_fail = any(t.event == "fail" for t in state.transitions)
             if not has_fail:
                 continue
@@ -295,10 +301,15 @@ class STCLinter:
                 routine = routine_map.get(step_name)
                 if routine is None:
                     continue  # already caught by E003
-                if routine.rollback is None:
-                    self.warnings.append(Diagnostic(
-                        "W005",
-                        f"State '{state.name}': routine '{step_name}' has a `fail` transition "
-                        f"but no `rollback` defined. Failure may leave the system in a dirty state.",
-                        state.line,
-                    ))
+                if routine.is_unfailing:
+                    continue  # unfailing routines never fail
+                for i, step in enumerate(routine.steps):
+                    if step.rollback_action is None:
+                        self.warnings.append(Diagnostic(
+                            "W005",
+                            f"State '{state.name}': routine '{step_name}' step {i} has no "
+                            f"`rollback` but the state has a `fail` transition. "
+                            f"Failure may leave the system in a dirty state.",
+                            state.line,
+                        ))
+                        break  # one warning per routine is enough

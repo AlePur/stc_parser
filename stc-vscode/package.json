@@ -14,7 +14,7 @@
       {
         "id": "stc",
         "aliases": ["STC", "stc"],
-        "extensions": [".stc"],
+        "extensions": [".stc", ".stct"],
         "configuration": "./language-configuration.json"
       }
     ],

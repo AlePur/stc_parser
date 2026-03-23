@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#numbers" },
     { "include": "#service-decl" },
     { "include": "#external-decl" },
     { "include": "#routine-decl" },
@@ -12,6 +13,10 @@
     { "include": "#transition" },
     { "include": "#body-keywords" },
     { "include": "#external-types" },
+    { "include": "#stct-test-decl" },
+    { "include": "#stct-example-decl" },
+    { "include": "#stct-assignment" },
+    { "include": "#stct-keywords" },
     { "include": "#punctuation" }
   ],
   "repository": {
@@ -41,12 +46,19 @@
       ]
     },
 
+    "numbers": {
+      "name": "constant.numeric.stc",
+      "match": "\\b[0-9]+\\b"
+    },
+
     "service-decl": {
-      "comment": "service CheckoutService",
-      "match": "\\b(service)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "comment": "service CheckoutService  |  service CheckoutService from \"./checkout\"",
+      "match": "\\b(service)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(from)\\s*(\"[^\"]*\"))?",
       "captures": {
         "1": { "name": "keyword.control.stc" },
-        "2": { "name": "entity.name.type.service.stc" }
+        "2": { "name": "entity.name.type.service.stc" },
+        "3": { "name": "keyword.control.import.stc" },
+        "4": { "name": "string.quoted.double.stc" }
       }
     },
 
@@ -61,13 +73,14 @@
     },
 
     "routine-decl": {
-      "comment": "routine ReserveStock(MainDB) { ... }",
-      "begin": "\\b(routine)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()",
+      "comment": "routine [unfailing] Name(Dep, ...) { ... }",
+      "begin": "\\b(routine)(?:\\s+(unfailing))?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()",
       "end": "\\)",
       "beginCaptures": {
         "1": { "name": "keyword.control.stc" },
-        "2": { "name": "entity.name.function.routine.stc" },
-        "3": { "name": "punctuation.definition.parameters.begin.stc" }
+        "2": { "name": "storage.modifier.stc" },
+        "3": { "name": "entity.name.function.routine.stc" },
+        "4": { "name": "punctuation.definition.parameters.begin.stc" }
       },
       "endCaptures": {
         "0": { "name": "punctuation.definition.parameters.end.stc" }
@@ -102,7 +115,7 @@
       "comment": "Keywords used inside routine and state bodies",
       "patterns": [
         {
-          "comment": "do/rollback ... to Target",
+          "comment": "do/rollback",
           "match": "\\b(do|rollback)\\b",
           "name": "keyword.other.action.stc"
         },
@@ -117,6 +130,14 @@
         {
           "comment": "lock Dependency",
           "match": "\\b(lock)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.lock.stc" },
+            "2": { "name": "entity.name.type.external.stc" }
+          }
+        },
+        {
+          "comment": "unlock Dependency",
+          "match": "\\b(unlock)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": { "name": "keyword.other.lock.stc" },
             "2": { "name": "entity.name.type.external.stc" }
@@ -147,6 +168,80 @@
       "name": "variable.parameter.stc"
     },
 
+    "stct-test-decl": {
+      "comment": "test IdempotencyTest { ... }",
+      "match": "\\b(test)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.stc" },
+        "2": { "name": "entity.name.type.test.stc" }
+      }
+    },
+
+    "stct-example-decl": {
+      "comment": "example DATA ExampleUser",
+      "match": "\\b(example)\\s+(DB|API|DATA)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.stc" },
+        "2": { "name": "support.type.external.stc" },
+        "3": { "name": "entity.name.type.external.stc" }
+      }
+    },
+
+    "stct-assignment": {
+      "comment": "service1 := start CheckoutService(...)",
+      "match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(:=)\\s*(start)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "variable.other.stc" },
+        "2": { "name": "keyword.operator.assignment.stc" },
+        "3": { "name": "keyword.control.stc" },
+        "4": { "name": "entity.name.type.service.stc" }
+      }
+    },
+
+    "stct-keywords": {
+      "comment": "Keywords specific to .stct test files",
+      "patterns": [
+        {
+          "comment": "run ... to Target[^]",
+          "match": "\\b(run)\\b",
+          "name": "keyword.control.stc"
+        },
+        {
+          "comment": "assert statement: assert Var writes = N",
+          "match": "\\b(assert)\\b",
+          "name": "keyword.control.stc"
+        },
+        {
+          "comment": "'to' keyword in run statements",
+          "match": "\\b(to)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.stc" },
+            "2": { "name": "entity.name.type.state.stc" }
+          }
+        },
+        {
+          "comment": "^ state-entry marker (e.g. Processing^)",
+          "match": "\\^",
+          "name": "keyword.operator.stc"
+        },
+        {
+          "comment": "'writes' assertion qualifier",
+          "match": "\\b(writes)\\b",
+          "name": "keyword.other.stc"
+        },
+        {
+          "comment": "= operator in assertions",
+          "match": "(?<=\\bwrites\\b\\s*)=",
+          "name": "keyword.operator.stc"
+        },
+        {
+          "comment": "strict qualifier comment keyword — already caught by comment rule, listed here for clarity",
+          "match": "\\b(strict)\\b",
+          "name": "keyword.other.stc"
+        }
+      ]
+    },
+
     "punctuation": {
       "patterns": [
         {
@@ -168,6 +263,10 @@
         {
           "name": "punctuation.separator.stc",
           "match": ","
+        },
+        {
+          "name": "punctuation.separator.key-value.stc",
+          "match": ":"
         }
       ]
     }

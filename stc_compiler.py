@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from stc_ast import ServiceAST, State
+from stc_ast import DoKind, ServiceAST, State
 from stc_parser import parse_file, ParseError
 from stc_linter import STCLinter, Diagnostic
 
@@ -80,9 +80,16 @@ def _print_ast_summary(ast: ServiceAST):
     print(_c("  Routines:", CYAN))
     for r in ast.routines:
         deps = ", ".join(r.dependencies) or "—"
-        lock = f"  🔒 locks {r.lock_target}" if r.lock_target else ""
-        rb   = "  ↩ has rollback" if r.rollback else ""
-        print(f"    {r.name}({deps}){lock}{rb}")
+        lock_resources = [
+            s.do_action.resource
+            for s in r.steps
+            if s.do_action.kind.value == "lock" and s.do_action.resource
+        ]
+        has_rb = any(s.rollback_action for s in r.steps)
+        unfailing = "  ⚡ unfailing" if r.is_unfailing else ""
+        lock = f"  🔒 locks {', '.join(lock_resources)}" if lock_resources else ""
+        rb   = "  ↩ has rollback(s)" if has_rb else ""
+        print(f"    {r.name}({deps}){unfailing}{lock}{rb}")
 
     print(_c("  States:", CYAN))
     for s in ast.states:
@@ -106,7 +113,10 @@ def _state_description(state: State, routine_map: dict) -> str:
     parts = []
     for step in state.steps:
         r = routine_map.get(step)
-        parts.append(f"{step}[locked]" if (r and r.lock_target) else step)
+        has_lock = r and any(
+            s.do_action.kind == DoKind.LOCK for s in r.steps
+        )
+        parts.append(f"{step}[locked]" if has_lock else step)
     return "steps(" + ", ".join(parts) + ")"
 
 
