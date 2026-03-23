@@ -1,0 +1,1 @@
+ln -sf /home/aleksander-work/Skrivbord/stc/stc-vscode /home/aleksander-work/.vscode/extensions/stc-lang
